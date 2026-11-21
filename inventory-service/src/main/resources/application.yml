@@ -4,18 +4,51 @@ server:
 spring:
   application:
     name: inventory-service
+
   datasource:
     url: jdbc:postgresql://localhost:5432/order_platform?currentSchema=inventory_schema
     username: app_user
     password: app_password
-    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 3000
+
   jpa:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+    properties:
+      hibernate:
+        default_schema: inventory_schema
+
   flyway:
     enabled: true
     schemas: inventory_schema
+    default-schema: inventory_schema
     create-schemas: true
+
   kafka:
     bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+    consumer:
+      group-id: inventory-service-group
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.zzzeinhom.*"
+        spring.json.use.type.headers: false
+    listener:
+      ack-mode: record
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

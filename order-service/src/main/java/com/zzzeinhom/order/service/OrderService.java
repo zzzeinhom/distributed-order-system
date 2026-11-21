@@ -3,9 +3,11 @@ package com.zzzeinhom.order.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zzzeinhom.order.dto.CreateOrderRequest;
+import com.zzzeinhom.order.dto.InventoryResultEvent;
 import com.zzzeinhom.order.dto.OrderCreatedEvent;
 import com.zzzeinhom.order.dto.OrderResponse;
 import com.zzzeinhom.order.entity.Order;
+import com.zzzeinhom.order.entity.OrderStatus;
 import com.zzzeinhom.order.entity.OutboxEvent;
 import com.zzzeinhom.order.repository.OrderRepository;
 import com.zzzeinhom.order.repository.OutboxEventRepository;
@@ -78,6 +80,23 @@ public class OrderService {
         Order order = orderRepository.findByIdempotencyKey(idempotencyKey)
                 .orElseThrow(() -> new NoSuchElementException("Order not found for idempotency key: " + idempotencyKey));
         return OrderResponse.from(order);
+    }
+
+    @Transactional
+    public void handleInventoryResult(InventoryResultEvent event) {
+        Order order = orderRepository.findById(event.orderId())
+                .orElseThrow(() -> new NoSuchElementException("Order not found: " + event.orderId()));
+
+        // Idempotency guard: safely ignore duplicate events if order status was already finalized
+        if (order.getStatus() != OrderStatus.PENDING) {
+            return;
+        }
+
+        if (event.reserved()) {
+            order.markConfirmed();
+        } else {
+            order.markRejected(event.failureReason());
+        }
     }
 
     @Transactional(readOnly = true)

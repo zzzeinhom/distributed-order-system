@@ -2,20 +2,29 @@ name: Distributed Order System CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ main, master ]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
-      - name: Build and Run Integration Tests
-        run: mvn -B verify
+
+      - name: Run Unit & Testcontainers Integration Tests
+        run: mvn -B test
+
+      - name: Verify Docker Image Builds
+        run: |
+          docker build -f order-service/Dockerfile -t order-service:ci .
+          docker build -f inventory-service/Dockerfile -t inventory-service:ci .

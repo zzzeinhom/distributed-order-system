@@ -8,12 +8,13 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Component
 public class InventoryReservationCoordinator {
 
     private static final Logger log = LoggerFactory.getLogger(InventoryReservationCoordinator.class);
-    private static final int MAX_OPTIMISTIC_RETRIES = 3;
+    private static final int MAX_OPTIMISTIC_RETRIES = 15;
 
     private final InventoryService inventoryService;
 
@@ -34,6 +35,12 @@ public class InventoryReservationCoordinator {
                 }
                 log.warn("Optimistic lock conflict for order {} (attempt {}/{}), retrying...",
                         event.orderId(), attempt, MAX_OPTIMISTIC_RETRIES);
+                try {
+                    Thread.sleep(ThreadLocalRandom.current().nextInt(5, 25));
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("Interrupted during optimistic lock retry", ie);
+                }
             }
         }
     }
